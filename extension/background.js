@@ -29,9 +29,9 @@ importScripts('neon-auth.bundle.js');
 const BACKEND_URL = globalThis.SMART_WEB_CONFIG.API_BASE_URL.replace(/\/$/, '');
 const TIMEOUT_MS = 30_000;
 
-async function loadAuthConfig({ forceRefresh = false } = {}) {
+async function loadAuthConfig() {
   const saved = await chrome.storage.local.get('authConfig');
-  if (!forceRefresh && saved.authConfig?.neonAuthBaseUrl) return saved.authConfig;
+  if (saved.authConfig?.neonAuthBaseUrl) return saved.authConfig;
   const response = await fetchWithTimeout(`${BACKEND_URL}/api/auth-config`);
   if (!response.ok) throw new Error('Could not load sign-in configuration.');
   const config = await response.json();
@@ -40,45 +40,26 @@ async function loadAuthConfig({ forceRefresh = false } = {}) {
 }
 
 let neonAuthClient;
-async function getNeonAuth({ refreshConfig = false } = {}) {
-  if (!neonAuthClient || refreshConfig) {
-    const config = await loadAuthConfig({ forceRefresh: refreshConfig });
+async function getNeonAuth() {
+  if (!neonAuthClient) {
+    const config = await loadAuthConfig();
     neonAuthClient = NeonAuthBundle.createAuthClient(config.neonAuthBaseUrl);
   }
   return neonAuthClient;
 }
 
-function isNotFoundError(error) {
-  return error?.status === 404
-    || error?.statusCode === 404
-    || /\bHTTP 404\b/.test(error?.message || '');
-}
-
 async function currentSession(auth) {
-  const [token, response] = await Promise.all([auth.getJWTToken(), auth.getSession()]);
-  const session = response?.data;
-  return token && session?.user?.id
-    ? { access_token: token, user: { id: session.user.id, email: session.user.email } }
+  const response = await auth.getSession();
+  const session = response?.data?.session;
+  const user = response?.data?.user;
+  return session?.token && user?.id
+    ? { access_token: session.token, user: { id: user.id, email: user.email } }
     : null;
 }
 
 async function authedFetch(path, options = {}) {
-  let auth = await getNeonAuth();
-  let session;
-  try {
-    session = await currentSession(auth);
-  } catch (error) {
-    // A previous extension version may have cached an obsolete Neon Auth URL.
-    // Fetch the current public endpoint from the backend once and retry without
-    // clearing the user's session, API key, or saved conversations.
-    if (!isNotFoundError(error)) throw error;
-    auth = await getNeonAuth({ refreshConfig: true });
-    try {
-      session = await currentSession(auth);
-    } catch (retryError) {
-      throw new Error(`Neon Auth session check failed after refreshing configuration: ${retryError.message || 'HTTP 404'}`);
-    }
-  }
+  const auth = await getNeonAuth();
+  const session = await currentSession(auth);
   if (!session?.access_token) throw new Error('Sign in to use Smart Web Assistant.');
   await chrome.storage.local.set({ userSession: session });
   const send = (token) => fetchWithTimeout(`${BACKEND_URL}${path}`, {

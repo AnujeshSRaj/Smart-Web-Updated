@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Smart Web Assistant",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI-powered browser assistant for summarizing and asking questions about web pages.",
 
   "permissions": [
