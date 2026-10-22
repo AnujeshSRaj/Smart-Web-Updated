@@ -53,6 +53,7 @@ describe('GET /extension-auth', () => {
     assert.equal(res.status, 200);
     assert.match(res.headers['content-type'], /javascript/);
     assert.match(res.text, /createAuthClient/);
+    assert.match(res.text, /NeonAuthBundle/);
   });
 
   it('serves the public Neon Auth URL for the hosted sign-in page', async () => {

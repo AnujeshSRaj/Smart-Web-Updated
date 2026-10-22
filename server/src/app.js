@@ -2,6 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { config } from './config/env.js';
 import { requestContext } from './middleware/request-context.middleware.js';
@@ -31,8 +32,12 @@ const HOME_PAGE = `<!doctype html>
   </body>
 </html>`;
 
-const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const APP_DIR = dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = join(APP_DIR, '..', 'public');
+const NEON_AUTH_BUNDLE_PATH = [
+  join(APP_DIR, '..', '..', 'extension', 'neon-auth.bundle.js'),
+  join(APP_DIR, '..', 'extension', 'neon-auth.bundle.js'),
+].find(existsSync);
 
 export function createApp() {
   const app = express();
@@ -64,7 +69,8 @@ export function createApp() {
   });
 
   app.get('/auth-assets/neon-auth.bundle.js', (_req, res) => {
-    res.sendFile(join(REPO_ROOT, 'extension', 'neon-auth.bundle.js'));
+    if (!NEON_AUTH_BUNDLE_PATH) return res.sendStatus(404);
+    res.sendFile(NEON_AUTH_BUNDLE_PATH);
   });
   app.get('/auth-assets/auth-config.js', (_req, res) => {
     res.type('application/javascript').send(
