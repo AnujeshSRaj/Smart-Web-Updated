@@ -7,6 +7,8 @@ WORKDIR /app
 COPY server/package*.json ./
 RUN npm ci --omit=dev
 COPY server/src ./src
+COPY server/public ./public
+COPY extension/neon-auth.bundle.js ./extension/neon-auth.bundle.js
 
 EXPOSE 8080
 CMD ["npm", "start"]

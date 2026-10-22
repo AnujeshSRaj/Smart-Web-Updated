@@ -1,9 +1,10 @@
 # Deployment: Neon + Drizzle + Google Cloud Run
 
 ```text
-Chrome extension ──HTTPS + Neon Auth JWT──> Cloud Run API ──> Neon Auth JWKS
-                                                   └──> Neon Postgres (Drizzle)
-                                                   └──> Groq API
+Chrome extension ──> Cloud Run HTTPS sign-in page ──> Neon Auth
+Chrome extension ──HTTPS + Neon Auth JWT────────────> Cloud Run API ──> Neon Auth JWKS
+                                                                  └──> Neon Postgres (Drizzle)
+                                                                  └──> Groq API
 ```
 
 The API is publicly reachable so the extension can call it; protected routes require a verified Neon Auth user token. Database credentials and any shared Groq key stay on the server. Each chat write is transactional, and per-user quotas are shared through Postgres.
@@ -13,7 +14,7 @@ The API is publicly reachable so the extension can call it; protected routes req
 1. Create a Neon project and enable Neon Auth.
 2. Copy the pooled Postgres connection string as `DATABASE_URL` for the Cloud Run service.
 3. Copy Neon Auth's base URL and JWKS URL as `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL`.
-4. Add the final Chrome extension origin (`chrome-extension://YOUR_EXTENSION_ID`) to Neon Auth's trusted origins. Enable email verification and configure allowed sign-in methods.
+4. Neon Auth's managed trusted-domain setting accepts HTTP/HTTPS origins, not `chrome-extension://` origins. Add the Cloud Run HTTPS service URL as a trusted domain after deployment. The extension signs users in through the Cloud Run page and receives its JWT through a state-checked extension message.
 5. From `server/`, run `npm ci` and `npm run db:migrate` against the target database before deploying. Migrations create application tables, forced tenant row level security policies, and stable message ordering; Neon Auth manages its own auth schema. Migration `0003` clears only temporary rate-limit counters as it adds the owner column. Coordinate this schema change with the API release if an older server is already serving traffic.
 
 ## 2. Deploy the API to Cloud Run
@@ -36,7 +37,7 @@ CORS_ORIGINS=chrome-extension://YOUR_EXTENSION_ID
 
 Reference the secrets as `DATABASE_URL` and `GROQ_API_KEY`. For a demo, start with a low Cloud Run maximum instance count that fits the Neon connection limit. Apply migrations once to the target Neon database before serving user traffic; do not run migrations from every application instance.
 
-After Cloud Run creates the service, copy its HTTPS URL into `extension/config.js`, replace broad host permissions in `extension/manifest.json` with the exact Cloud Run and Neon Auth hosts, load the extension in Chrome to get its ID, and update `CORS_ORIGINS` plus Neon Auth trusted origins. Push these extension changes to GitHub if you want them tracked there.
+After Cloud Run creates the service, copy its HTTPS URL into `extension/config.js`, replace broad host permissions in `extension/manifest.json` with the exact Cloud Run host, load the extension in Chrome to get its ID, and update Cloud Run `CORS_ORIGINS` with `chrome-extension://YOUR_EXTENSION_ID`. Add the Cloud Run HTTPS URL (not the extension origin) to Neon Auth trusted domains. Push these extension changes to GitHub if you want them tracked there.
 
 The local project is initialized on the `main` branch, but has no commit or GitHub remote yet. Add a remote, make and push the first commit, then connect that GitHub repository to Cloud Run.
 
@@ -53,9 +54,10 @@ Omit the Groq secret mapping when users bring their own keys. Keep `DATABASE_URL
 ## 3. Configure and publish the extension
 
 1. Set `API_BASE_URL` in `extension/config.js` to the Cloud Run HTTPS URL.
-2. Replace the broad `*.run.app` and `*.neon.tech` permissions in `extension/manifest.json` with the exact API host and Neon Auth host, each ending in `/*`.
-3. Load the extension in Chrome, copy its stable ID, and make sure the same origin appears in both Cloud Run `CORS_ORIGINS` and Neon Auth's trusted origins.
-4. Reload the extension and test account creation, email verification, sign-in, chat, sign-out, and a second account.
+2. Keep only the exact Cloud Run API host in `extension/manifest.json` host permissions. `externally_connectable` must allow the same HTTPS Cloud Run host so the hosted sign-in page can securely return the token to the extension.
+3. Load the extension in Chrome and confirm its ID is `mcbffnibgfhofmbkcflfbekkdfmmkhge`; the hosted auth page checks this ID. If your ID differs, update `EXTENSION_ID` in `server/public/extension-auth.js` before packaging.
+4. Set Cloud Run `CORS_ORIGINS` to `chrome-extension://YOUR_EXTENSION_ID`. From the linked project root, run `neon neon-auth status` to confirm the correct auth branch, then add the Cloud Run HTTPS origin with `neon neon-auth domain add https://YOUR_CLOUD_RUN_HOST`.
+5. Push the backend changes so Cloud Run rebuilds, reload the extension, then test account creation, email verification, sign-in, chat, sign-out, and a second account.
 
 ## 4. Verify
 

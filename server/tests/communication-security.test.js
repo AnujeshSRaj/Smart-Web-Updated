@@ -142,9 +142,13 @@ describe('Extension to backend credential forwarding', () => {
     const backgroundSource = await readFile(new URL('../../extension/background.js', import.meta.url), 'utf8');
     const calls = [];
     let onMessage;
+    let onMessageExternal;
     const data = { userSession: { access_token: 'user-access-token', user: { id: 'user-1' } } };
     const chrome = {
-      runtime: { onMessage: { addListener(listener) { onMessage = listener; } } },
+      runtime: {
+        onMessage: { addListener(listener) { onMessage = listener; } },
+        onMessageExternal: { addListener(listener) { onMessageExternal = listener; } },
+      },
       storage: { local: {
         async get(key) { return { [key]: data[key] }; },
         async set(value) { Object.assign(data, value); },
@@ -160,10 +164,6 @@ describe('Extension to backend credential forwarding', () => {
     runInNewContext(backgroundSource, {
       chrome, fetch, AbortController, setTimeout, clearTimeout, console,
       SMART_WEB_CONFIG: { API_BASE_URL: 'https://backend.example.test' },
-      NeonAuthBundle: { createAuthClient: () => ({
-        getJWTToken: async () => 'user-access-token',
-        getSession: async () => ({ data: { user: { id: 'user-1', email: 'user@example.test' } } }),
-      }) },
       importScripts() {},
     });
 
@@ -172,7 +172,8 @@ describe('Extension to backend credential forwarding', () => {
     await dispatch({ type: 'CHAT', payload: { apiKey: 'groq-secret', question: 'Hi' } });
     await dispatch({ type: 'CLEAR_CHAT', payload: { conversationId: 'abc' } });
 
-    assert.equal(calls.length, 4);
+    assert.equal(typeof onMessageExternal, 'function');
+    assert.equal(calls.length, 3);
     for (const call of calls) {
       assert.match(call.url, /^https:\/\/backend\.example\.test/);
     }
@@ -180,5 +181,57 @@ describe('Extension to backend credential forwarding', () => {
     assert.equal(chatCall.options.headers.Authorization, 'Bearer user-access-token');
     assert.equal(chatCall.options.headers['X-Groq-API-Key'], 'groq-secret');
     assert.equal(JSON.parse(chatCall.options.body).apiKey, undefined);
+  });
+
+  it('uses a state-checked HTTPS auth page to transfer a session into the extension', async () => {
+    const backgroundSource = await readFile(new URL('../../extension/background.js', import.meta.url), 'utf8');
+    const state = '123e4567-e89b-12d3-a456-426614174000';
+    const stored = {};
+    let onMessage;
+    let onMessageExternal;
+    let openedUrl;
+    const chrome = {
+      runtime: {
+        id: 'mcbffnibgfhofmbkcflfbekkdfmmkhge',
+        onMessage: { addListener(listener) { onMessage = listener; } },
+        onMessageExternal: { addListener(listener) { onMessageExternal = listener; } },
+      },
+      storage: { local: {
+        async get(key) { return { [key]: stored[key] }; },
+        async set(value) { Object.assign(stored, value); },
+        async remove(key) { delete stored[key]; },
+      } },
+      tabs: { async create({ url }) { openedUrl = url; } },
+    };
+    runInNewContext(backgroundSource, {
+      chrome, fetch: async () => ({ ok: true, json: async () => ({}) }),
+      AbortController, setTimeout, clearTimeout, console, URL,
+      crypto: { randomUUID: () => state }, atob: globalThis.atob,
+      SMART_WEB_CONFIG: { API_BASE_URL: 'https://backend.example.test' },
+      importScripts() {},
+    });
+
+    const dispatch = (message) => new Promise((resolve) => onMessage(message, {}, resolve));
+    const started = await dispatch({ type: 'AUTH_SIGN_IN' });
+    assert.equal(started.ok, true);
+    assert.equal(new URL(openedUrl).origin, 'https://backend.example.test');
+    assert.equal(new URL(openedUrl).pathname, '/extension-auth');
+    assert.equal(new URL(openedUrl).searchParams.get('state'), state);
+
+    const claims = Buffer.from(JSON.stringify({
+      sub: '00000000-0000-4000-8000-000000000001',
+      email: 'reader@example.test',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })).toString('base64url');
+    const token = `eyJhbGciOiJub25lIn0.${claims}.signature`;
+    const completed = await new Promise((resolve) => onMessageExternal({
+      type: 'SMART_WEB_AUTH_COMPLETE', state, status: 'signed_in', token,
+    }, { url: `https://backend.example.test/extension-auth?state=${state}` }, resolve));
+
+    assert.equal(completed.ok, true);
+    assert.equal(stored.userSession.access_token, token);
+    assert.equal(stored.userSession.user.id, '00000000-0000-4000-8000-000000000001');
+    assert.equal(stored.userSession.user.email, 'reader@example.test');
+    assert.equal(stored.pendingAuth, undefined);
   });
 });

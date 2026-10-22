@@ -39,6 +39,31 @@ describe('GET /', () => {
   });
 });
 
+describe('GET /extension-auth', () => {
+  it('serves the hosted sign-in page used by the extension', async () => {
+    const res = await request.get('/extension-auth');
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /text\/html/);
+    assert.match(res.text, /Smart Web Assistant/);
+    assert.match(res.text, /auth-form/);
+  });
+
+  it('serves the bundled Neon Auth client from the repository source', async () => {
+    const res = await request.get('/auth-assets/neon-auth.bundle.js');
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /javascript/);
+    assert.match(res.text, /createAuthClient/);
+  });
+
+  it('serves the public Neon Auth URL for the hosted sign-in page', async () => {
+    const res = await request.get('/auth-assets/auth-config.js');
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /javascript/);
+    assert.match(res.text, /SMART_WEB_AUTH_CONFIG/);
+    assert.match(res.text, /"neonAuthBaseUrl":"https:\/\//);
+  });
+});
+
 describe('GET /api/health', () => {
   it('returns 200 with status ok', async () => {
     const res = await request.get('/api/health');

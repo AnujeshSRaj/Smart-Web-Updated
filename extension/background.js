@@ -25,48 +25,92 @@
  */
 
 importScripts('config.js');
-importScripts('neon-auth.bundle.js');
 const BACKEND_URL = globalThis.SMART_WEB_CONFIG.API_BASE_URL.replace(/\/$/, '');
 const TIMEOUT_MS = 30_000;
 
-async function loadAuthConfig() {
-  const saved = await chrome.storage.local.get('authConfig');
-  if (saved.authConfig?.neonAuthBaseUrl) return saved.authConfig;
-  const response = await fetchWithTimeout(`${BACKEND_URL}/api/auth-config`);
-  if (!response.ok) throw new Error('Could not load sign-in configuration.');
-  const config = await response.json();
-  await chrome.storage.local.set({ authConfig: config });
-  return config;
-}
-
-let neonAuthClient;
-async function getNeonAuth() {
-  if (!neonAuthClient) {
-    const config = await loadAuthConfig();
-    neonAuthClient = NeonAuthBundle.createAuthClient(config.neonAuthBaseUrl);
-  }
-  return neonAuthClient;
-}
-
-async function currentSession(auth) {
-  const response = await auth.getSession();
-  const session = response?.data?.session;
-  const user = response?.data?.user;
-  return session?.token && user?.id
-    ? { access_token: session.token, user: { id: user.id, email: user.email } }
-    : null;
-}
-
 async function authedFetch(path, options = {}) {
-  const auth = await getNeonAuth();
-  const session = await currentSession(auth);
-  if (!session?.access_token) throw new Error('Sign in to use Smart Web Assistant.');
-  await chrome.storage.local.set({ userSession: session });
-  const send = (token) => fetchWithTimeout(`${BACKEND_URL}${path}`, {
+  const { userSession } = await chrome.storage.local.get('userSession');
+  if (!userSession?.access_token) throw new Error('Sign in to use Smart Web Assistant.');
+  const response = await fetchWithTimeout(`${BACKEND_URL}${path}`, {
     ...options,
-    headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` },
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${userSession.access_token}` },
   });
-  return send(session.access_token);
+  if (response.status === 401) {
+    await chrome.storage.local.remove('userSession');
+    throw new Error('Your sign-in expired. Open Settings and sign in again.');
+  }
+  return response;
+}
+
+function readJwtClaims(token) {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')));
+  } catch {
+    throw new Error('Neon Auth returned an invalid sign-in token.');
+  }
+}
+
+async function startHostedAuth(mode) {
+  const state = crypto.randomUUID();
+  const authUrl = new URL(`${BACKEND_URL}/extension-auth`);
+  authUrl.searchParams.set('mode', mode);
+  authUrl.searchParams.set('extension_id', chrome.runtime.id);
+  authUrl.searchParams.set('state', state);
+  await chrome.storage.local.set({ pendingAuth: { state, mode, createdAt: Date.now() } });
+  if (mode === 'signout') await chrome.storage.local.remove('userSession');
+  await chrome.tabs.create({ url: authUrl.toString(), active: true });
+  return { ok: true, data: { authStarted: true } };
+}
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  handleExternalAuth(message, sender).then(sendResponse).catch((err) => {
+    sendResponse({ ok: false, error: err.message || 'Could not finish sign-in.' });
+  });
+  return true;
+});
+
+async function handleExternalAuth(message, sender) {
+  let source;
+  try { source = new URL(sender.url); } catch { throw new Error('Untrusted sign-in page.'); }
+  const expectedOrigin = new URL(BACKEND_URL).origin;
+  if (source.origin !== expectedOrigin || source.pathname !== '/extension-auth') {
+    throw new Error('Untrusted sign-in page.');
+  }
+  if (message?.type !== 'SMART_WEB_AUTH_COMPLETE') throw new Error('Unknown sign-in response.');
+
+  const { pendingAuth } = await chrome.storage.local.get('pendingAuth');
+  const pendingLifetime = pendingAuth?.mode === 'signup' ? 24 * 60 * 60 * 1000 : 10 * 60 * 1000;
+  if (!pendingAuth || pendingAuth.state !== message.state || Date.now() - pendingAuth.createdAt > pendingLifetime) {
+    await chrome.storage.local.remove('pendingAuth');
+    throw new Error('Sign-in expired. Reopen Settings and try again.');
+  }
+
+  if (message.status === 'verification_required' && pendingAuth.mode === 'signup') {
+    await chrome.storage.local.set({ authNotice: 'Account created. Check your email to verify it, then sign in.' });
+    return { ok: true };
+  }
+  await chrome.storage.local.remove('pendingAuth');
+  if (message.status === 'signed_out' && pendingAuth.mode === 'signout') {
+    await chrome.storage.local.remove('userSession');
+    return { ok: true };
+  }
+  if (message.status !== 'signed_in' || typeof message.token !== 'string') {
+    throw new Error('Neon Auth did not return a session. Try signing in again.');
+  }
+
+  const claims = readJwtClaims(message.token);
+  const isUuid = typeof claims.sub === 'string'
+    && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(claims.sub);
+  if (!isUuid || typeof claims.exp !== 'number' || claims.exp * 1000 <= Date.now()) {
+    throw new Error('Neon Auth returned an invalid or expired session. Try again.');
+  }
+  const session = {
+    access_token: message.token,
+    user: { id: claims.sub, email: typeof message.email === 'string' ? message.email : claims.email || '' },
+  };
+  await chrome.storage.local.set({ userSession: session });
+  return { ok: true };
 }
 
 /**
@@ -119,25 +163,18 @@ async function handleMessage(message) {
   const { type, payload } = message;
 
   switch (type) {
-    case 'AUTH_CONFIG': {
-      try { return { ok: true, data: await loadAuthConfig() }; }
-      catch (err) { return { ok: false, error: err.message }; }
-    }
     case 'AUTH_SIGN_IN':
-    case 'AUTH_SIGN_UP': {
-      try {
-        const auth = await getNeonAuth();
-        if (type === 'AUTH_SIGN_IN') await auth.signIn.email({ email: payload.email, password: payload.password });
-        else await auth.signUp.email({ email: payload.email, password: payload.password, name: payload.email.split('@')[0] });
-        const session = await currentSession(auth);
-        if (session) await chrome.storage.local.set({ userSession: session });
-        return { ok: true, data: session || {} };
-      } catch (err) { return { ok: false, error: err.message }; }
-    }
+      try { return await startHostedAuth('signin'); }
+      catch (err) { return { ok: false, error: err.message }; }
+    case 'AUTH_SIGN_UP':
+      try { return await startHostedAuth('signup'); }
+      catch (err) { return { ok: false, error: err.message }; }
     case 'AUTH_SIGN_OUT': {
-      try { await (await getNeonAuth()).signOut(); } catch { /* clear local state even if already expired */ }
-      await chrome.storage.local.remove('userSession');
-      return { ok: true };
+      try { return await startHostedAuth('signout'); }
+      catch (err) {
+        await chrome.storage.local.remove('userSession');
+        return { ok: false, error: err.message };
+      }
     }
     // ── HEALTH_CHECK ─────────────────────────────────────────────────────────
     case 'HEALTH_CHECK': {

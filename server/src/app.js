@@ -1,6 +1,8 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from './config/env.js';
 import { requestContext } from './middleware/request-context.middleware.js';
 import { requireUser } from './middleware/auth.middleware.js';
@@ -29,10 +31,20 @@ const HOME_PAGE = `<!doctype html>
   </body>
 </html>`;
 
+const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        connectSrc: ["'self'", new URL(config.neonAuthBaseUrl).origin],
+      },
+    },
+  }));
   app.use(requestContext);
   app.use(cors({
     origin: (origin, callback) => {
@@ -49,6 +61,19 @@ export function createApp() {
 
   app.get('/', (_req, res) => {
     res.status(200).type('html').send(HOME_PAGE);
+  });
+
+  app.get('/auth-assets/neon-auth.bundle.js', (_req, res) => {
+    res.sendFile(join(REPO_ROOT, 'extension', 'neon-auth.bundle.js'));
+  });
+  app.get('/auth-assets/auth-config.js', (_req, res) => {
+    res.type('application/javascript').send(
+      `globalThis.SMART_WEB_AUTH_CONFIG = Object.freeze(${JSON.stringify({ neonAuthBaseUrl: config.neonAuthBaseUrl })});`,
+    );
+  });
+  app.use('/auth-assets', express.static(PUBLIC_DIR, { dotfiles: 'deny', index: false }));
+  app.get('/extension-auth', (_req, res) => {
+    res.sendFile(join(PUBLIC_DIR, 'extension-auth.html'));
   });
 
   // Public operational endpoints are mounted separately from user data routes.

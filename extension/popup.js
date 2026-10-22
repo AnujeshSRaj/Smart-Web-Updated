@@ -71,8 +71,6 @@ const settingsApiKey    = document.getElementById('settings-api-key');
 const settingsModel     = document.getElementById('settings-model');
 const settingsSaveBtn   = document.getElementById('settings-save-btn');
 const settingsStatusMsg = document.getElementById('settings-status-msg');
-const authEmail         = document.getElementById('auth-email');
-const authPassword      = document.getElementById('auth-password');
 const authStatusMsg     = document.getElementById('auth-status-msg');
 const authSignInBtn     = document.getElementById('auth-sign-in-btn');
 const authSignUpBtn     = document.getElementById('auth-sign-up-btn');
@@ -144,7 +142,7 @@ async function init() {
 // ── User Settings (BYOK) ───────────────────────────────────────────────────────
 async function loadUserSettings() {
   try {
-    const localData = await chrome.storage.local.get(['groqApiKey', 'groqModel', 'userSession']);
+    const localData = await chrome.storage.local.get(['groqApiKey', 'groqModel', 'userSession', 'authNotice']);
     let data = localData;
     // Move previously synced credentials off Google's sync service and keep
     // the BYOK key and backend token local to this browser profile.
@@ -161,9 +159,13 @@ async function loadUserSettings() {
     }
     userApiKey = data.groqApiKey || null;
     userSession = localData.userSession || null;
+    if (localData.authNotice) {
+      authStatusMsg.textContent = localData.authNotice;
+      authStatusMsg.className = 'settings-status success';
+      await chrome.storage.local.remove('authNotice');
+    }
     await chrome.storage.local.remove('backendApiToken');
     updateAuthControls();
-    if (!localData.authConfig) sendMessage({ type: 'AUTH_CONFIG' });
     // Replace model IDs saved by older versions of the extension.
     const savedModel = data.groqModel;
     userModel = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'].includes(savedModel)
@@ -187,7 +189,7 @@ function openSettingsModal() {
   settingsStatusMsg.className = 'settings-status';
   settingsModal.style.display = 'flex';
   if (userSession?.access_token) settingsApiKey.focus();
-  else authEmail.focus();
+  else authSignInBtn.focus();
 }
 
 function closeSettingsModal() {
@@ -226,35 +228,22 @@ async function saveUserSettings() {
 }
 
 async function authenticate(type) {
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
-  if (!email || !password) {
-    authStatusMsg.textContent = 'Enter your email and password.';
-    authStatusMsg.className = 'settings-status error';
-    return;
-  }
-  const result = await sendMessage({ type, payload: { email, password } });
+  authStatusMsg.textContent = 'Opening secure sign-in…';
+  authStatusMsg.className = 'settings-status';
+  const result = await sendMessage({ type });
   if (!result.ok) {
     authStatusMsg.textContent = result.error;
     authStatusMsg.className = 'settings-status error';
     return;
   }
-  if (!result.data?.access_token) {
-    authStatusMsg.textContent = 'Account created. Check your email to confirm, then sign in.';
-    authStatusMsg.className = 'settings-status success';
-    return;
-  }
-  userSession = result.data;
-  updateAuthControls();
-  authPassword.value = '';
-  authStatusMsg.textContent = 'Signed in.';
+  authStatusMsg.textContent = 'Sign-in page opened in a new tab. Finish there, then reopen the extension.';
   authStatusMsg.className = 'settings-status success';
-  checkBackendHealth();
 }
 
 async function signOut() {
   await sendMessage({ type: 'AUTH_SIGN_OUT' });
   userSession = null;
+  authStatusMsg.textContent = 'Sign-out page opened in a new tab.';
   window.location.reload();
 }
 
@@ -263,8 +252,6 @@ function updateAuthControls() {
   authSignInBtn.hidden = signedIn;
   authSignUpBtn.hidden = signedIn;
   authSignOutBtn.hidden = !signedIn;
-  authEmail.disabled = signedIn;
-  authPassword.disabled = signedIn;
   if (signedIn && !authStatusMsg.textContent) authStatusMsg.textContent = 'Signed in.';
 }
 

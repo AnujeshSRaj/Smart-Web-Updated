@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Smart Web Assistant",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AI-powered browser assistant for summarizing and asking questions about web pages.",
 
   "permissions": [
@@ -12,9 +12,12 @@
   ],
 
   "host_permissions": [
-    "https://smart-web-updated12-266348641987.us-east5.run.app/*",
-    "https://ep-spring-breeze-b5te0gvr.neonauth.c-7.us-east-2.aws.neon.tech/*"
+    "https://smart-web-updated12-266348641987.us-east5.run.app/*"
   ],
+
+  "externally_connectable": {
+    "matches": ["https://smart-web-updated12-266348641987.us-east5.run.app/*"]
+  },
 
   "background": {
     "service_worker": "background.js"
