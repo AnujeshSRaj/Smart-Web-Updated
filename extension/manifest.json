@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Smart Web Assistant",
-  "version": "1.0.0",
-  "description": "AI-powered assistant that reads the current webpage and answers your questions using Groq.",
+  "version": "1.0.1",
+  "description": "AI-powered browser assistant for summarizing and asking questions about web pages.",
 
   "permissions": [
     "activeTab",
