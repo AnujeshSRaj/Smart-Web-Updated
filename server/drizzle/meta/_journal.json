@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792647041820,
+      "tag": "0000_lumpy_bucky",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792647799414,
+      "tag": "0001_melted_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792648023048,
+      "tag": "0002_fast_nightmare",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792648155911,
+      "tag": "0003_wooden_invisible_woman",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792648464129,
+      "tag": "0004_medical_peter_quill",
+      "breakpoints": true
+    }
+  ]
+}

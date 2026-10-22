@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Web Assistant",
+  "version": "1.0.0",
+  "description": "Secure backend-authenticated web assistant. Uses the canonical extension UI.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": ["http://localhost:3000/*"],
+  "background": { "service_worker": "extension/background.js" },
+  "action": {
+    "default_popup": "extension/popup.html",
+    "default_title": "Smart Web Assistant"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Calcutta",
+  "architecture": {
+    "database": "Neon PostgreSQL via pooled @neondatabase/serverless Pool",
+    "orm": "Drizzle ORM",
+    "authentication": "Neon Auth JWT verified with jose and Neon JWKS",
+    "tenancy": "Owner-scoped SQL plus forced Postgres RLS using transaction-local verified subject",
+    "rate_limiting": "Atomic per-user fixed-window counters stored in Postgres",
+    "message_ordering": "Database-generated sequence per inserted message"
+  },
+  "tests": {
+    "passed": 44,
+    "failed": 0,
+    "coverage": {
+      "line_percent": 78.29,
+      "branch_percent": 76.88,
+      "function_percent": 73.68
+    },
+    "checks": [
+      "verified Neon-style JWT accepted; wrong-signature and malformed JWTs rejected",
+      "user-scoped conversation access and cross-user isolation",
+      "forced RLS migration and transaction-local owner context are present",
+      "CORS allowlist and HTTP security headers",
+      "client-supplied conversation history and retired model IDs rejected",
+      "Postgres-style fixed-window quota isolation by user in the test adapter",
+      "extension bearer forwarding and API key header handling",
+      "DOM extraction and XSS sanitization"
+    ],
+    "database_integration_tested": false,
+    "rls_migration_test_type": "static migration structure check; not a live Postgres behavior test"
+  },
+  "deployment_readiness": {
+    "multi_user_auth_code": true,
+    "per_user_conversation_isolation": true,
+    "forced_rls_migration": true,
+    "atomic_chat_persistence": true,
+    "stable_message_ordering": true,
+    "shared_database_rate_limits": true,
+    "drizzle_migrations_generated": true,
+    "https_backend_url_configurable": true,
+    "container_files": [
+      "server/Dockerfile",
+      "server/.dockerignore"
+    ],
+    "cloud_provider_guide": "DEPLOYMENT.md",
+    "live_neon_database_tested": false,
+    "live_deployment_completed": false
+  },
+  "benchmark": {
+    "mode": "local process with mocked Groq and in-memory test adapter",
+    "health_requests": 200,
+    "health_p50_ms": 1.59,
+    "health_p95_ms": 2.73,
+    "health_p99_ms": 3.5,
+    "health_throughput_rps": 527.9,
+    "chat_requests": 50,
+    "chat_p50_ms": 1.87,
+    "chat_p95_ms": 2.91,
+    "chat_p99_ms": 17.92,
+    "chat_throughput_rps": 429.8,
+    "context_payload_mean_ms": {
+      "1kb": 2.32,
+      "5kb": 2.48,
+      "10kb": 2.15,
+      "25kb": 2.19
+    },
+    "final_rss_mb": 202.43,
+    "note": "Local mock measurements only; not production capacity or Neon/Groq latency estimates."
+  }
+}

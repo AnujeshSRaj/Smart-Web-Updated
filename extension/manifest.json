@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Smart Web Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered assistant that reads the current webpage and answers your questions using Groq.",
+
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://*.run.app/*",
+    "https://*.neon.tech/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Smart Web Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

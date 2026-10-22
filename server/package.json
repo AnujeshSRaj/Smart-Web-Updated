@@ -1,0 +1,34 @@
+{
+  "name": "smart-web-assistant-server",
+  "version": "1.0.0",
+  "description": "Express backend for the Smart Web Assistant Chrome extension",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/health.test.js tests/chat.test.js tests/conversations.test.js tests/extension-dom-security.test.js tests/communication-security.test.js",
+    "test:coverage": "node --test --experimental-test-coverage tests/health.test.js tests/chat.test.js tests/conversations.test.js tests/extension-dom-security.test.js tests/communication-security.test.js",
+    "benchmark": "node tests/performance-benchmark.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.4",
+    "express": "^4.19.2",
+    "groq-sdk": "^0.5.0",
+    "helmet": "^7.1.0",
+    "jose": "^6.2.13",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11",
+    "jsdom": "^30.1.3",
+    "supertest": "^7.0.0"
+  }
+}

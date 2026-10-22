@@ -1,0 +1,36 @@
+# ── Node / Server ──────────────────────────────
+node_modules/
+server/data/
+server/.env
+*.log
+npm-debug.log*
+.npm
+
+# ── Environment ────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+!**/.env.example
+
+# ── Database files ─────────────────────────────
+server/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ── OS files ───────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ─────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Build artifacts ────────────────────────────
+dist/
+build/
+*.zip

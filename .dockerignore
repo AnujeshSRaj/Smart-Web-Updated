@@ -1,0 +1,15 @@
+.git
+.github
+.vscode
+.idea
+node_modules
+**/node_modules
+**/.env
+**/.env.*
+*.log
+*.zip
+extension
+server/tests
+server/coverage
+analysis-metrics.json
+analysis-report.md

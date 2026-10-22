@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=420" />
+  <title>Smart Web Assistant</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="header">
+    <span class="header-logo" aria-hidden="true">🤖</span>
+    <span class="header-title">Smart Web Assistant</span>
+    <button class="settings-icon-btn" id="settings-open-btn" title="API Key Settings (BYOK)" aria-label="Settings">⚙️</button>
+    <div class="connection-dot" id="connection-dot" title="Backend status"></div>
+  </header>
+
+  <!-- ── Settings Modal (BYOK - Bring Your Own Key) ───────────────────────── -->
+  <div class="settings-modal" id="settings-modal" style="display: none;">
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <h3>⚙️ Settings</h3>
+        <button class="modal-close-btn" id="settings-close-btn" aria-label="Close settings">&times;</button>
+      </div>
+      <div class="settings-card-body">
+        <section class="account-settings" aria-label="Account">
+          <label for="auth-email">Email account:</label>
+          <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" />
+          <label for="auth-password">Password:</label>
+          <input type="password" id="auth-password" placeholder="At least 8 characters" autocomplete="current-password" />
+          <div class="auth-actions">
+            <button type="button" id="auth-sign-in-btn">Sign In</button>
+            <button type="button" id="auth-sign-up-btn">Create Account</button>
+            <button type="button" id="auth-sign-out-btn" hidden>Sign Out</button>
+          </div>
+          <div class="settings-status" id="auth-status-msg" role="status"></div>
+        </section>
+        <hr />
+
+        <label for="settings-api-key">Your Groq API Key:</label>
+        <input
+          type="password"
+          id="settings-api-key"
+          placeholder="gsk_..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="settings-hint">
+          Each user can use their own key. Get a free key at
+          <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com</a>.
+        </div>
+
+        <label for="settings-model" style="margin-top: 10px;">Model:</label>
+        <select id="settings-model">
+          <option value="openai/gpt-oss-20b" selected>GPT OSS 20B (fast)</option>
+          <option value="openai/gpt-oss-120b">GPT OSS 120B (more capable)</option>
+        </select>
+
+        <div class="settings-status" id="settings-status-msg"></div>
+      </div>
+      <div class="settings-card-footer">
+            <button id="settings-save-btn">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Page context bar ───────────────────────────────────────────────── -->
+  <div class="page-bar">
+    <div class="page-info">
+      <span class="page-hostname" id="page-hostname">—</span>
+      <span class="page-title-text" id="page-title-text"></span>
+    </div>
+    <div class="page-actions">
+      <span class="page-status" id="page-status">Not analyzed</span>
+      <button id="refresh-btn" title="Re-analyze page" aria-label="Re-analyze page">↺</button>
+      <button id="analyze-btn">Analyze Page</button>
+    </div>
+  </div>
+
+  <!-- ── Suggested prompts ──────────────────────────────────────────────── -->
+  <div class="suggestions" role="list" aria-label="Suggested prompts">
+    <button class="suggestion-chip" data-prompt="Summarize this page in a few bullet points." role="listitem">Summarize</button>
+    <button class="suggestion-chip" data-prompt="What are the main ideas on this page?" role="listitem">Main ideas</button>
+    <button class="suggestion-chip" data-prompt="Extract the key facts and figures from this page." role="listitem">Key facts</button>
+    <button class="suggestion-chip" data-prompt="Generate 5 quiz questions based on this page." role="listitem">Quiz me</button>
+    <button class="suggestion-chip" data-prompt="Explain this page in simple terms for a beginner." role="listitem">Simplify</button>
+  </div>
+
+  <!-- ── Chat messages ──────────────────────────────────────────────────── -->
+  <main id="chat-container" aria-live="polite" aria-label="Conversation">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-state-icon" aria-hidden="true">💬</div>
+      <div class="empty-state-text">
+        Click <strong>Analyze Page</strong> to read the current webpage,
+        then ask a question below.
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Input area ─────────────────────────────────────────────────────── -->
+  <div class="input-area">
+    <div class="input-row">
+      <textarea
+        id="user-input"
+        rows="2"
+        placeholder="Ask a question about this page…"
+        aria-label="Your question"
+        autocomplete="off"
+        spellcheck="true"
+      ></textarea>
+      <button id="send-btn" aria-label="Send message" title="Send (Enter)">➤</button>
+    </div>
+    <div class="input-hint">Enter to send · Shift+Enter for new line</div>
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <button class="footer-btn danger" id="clear-btn" aria-label="Clear conversation">🗑 Clear Chat</button>
+    <button class="footer-btn" id="copy-btn" aria-label="Copy last response">📋 Copy Last</button>
+  </footer>
+
+  <!-- marked.js for Markdown rendering -->
+  <script src="marked.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
