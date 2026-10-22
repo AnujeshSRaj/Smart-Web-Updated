@@ -148,7 +148,7 @@ async function handleMessage(message) {
         if (err.name === 'AbortError') {
           return { ok: false, error: 'Backend connection timed out.' };
         }
-        return { ok: false, error: 'Backend is not running. Start it with: npm start' };
+        return { ok: false, error: err.message || 'Backend health request failed.' };
       }
     }
 
@@ -172,7 +172,7 @@ async function handleMessage(message) {
         if (err.name === 'AbortError') {
           return { ok: false, error: 'Request timed out. The AI is taking too long.' };
         }
-        return { ok: false, error: 'Cannot reach backend. Is the server running?' };
+        return { ok: false, error: err.message || 'Backend chat request failed.' };
       }
     }
 

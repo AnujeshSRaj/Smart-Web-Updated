@@ -28,6 +28,17 @@ const request = {
   get: (path) => supertest(app).get(path).set('X-Smart-Web-Token', 'test-api-token'),
 };
 
+describe('GET /', () => {
+  it('serves a small public homepage for the deployed API', async () => {
+    const res = await request.get('/');
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /text\/html/);
+    assert.match(res.text, /Smart Web Assistant API/);
+    assert.match(res.text, /\/api\/health/);
+    assert.match(res.text, /\/api\/ready/);
+  });
+});
+
 describe('GET /api/health', () => {
   it('returns 200 with status ok', async () => {
     const res = await request.get('/api/health');
